@@ -1,0 +1,142 @@
+[
+  {
+    "project_id": "PROJ-001",
+    "project_name": "Sunset Towers",
+    "location": "Miami Beach, FL",
+    "description": "Luxury oceanfront residential complex with stunning views and premium amenities",
+    "expected_annual_yield_percent": 8.5,
+    "image_url": "https://example.com/sunset-towers.jpg",
+    "floor_details": [
+      {
+        "apartment_name": "Unit 101 - Garden View",
+        "floor": 1,
+        "price_usd": 250000,
+        "total_sqm": 85.5,
+        "bedroom_sqm": 32.0,
+        "bathroom_sqm": 12.5,
+        "balcony_sqm": 8.0,
+        "bedrooms": 2,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Unit 102 - Garden View",
+        "floor": 1,
+        "price_usd": 275000,
+        "total_sqm": 95.0,
+        "bedroom_sqm": 38.0,
+        "bathroom_sqm": 14.0,
+        "balcony_sqm": 10.0,
+        "bedrooms": 2,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Unit 201 - Ocean View",
+        "floor": 2,
+        "price_usd": 320000,
+        "total_sqm": 105.0,
+        "bedroom_sqm": 42.0,
+        "bathroom_sqm": 16.0,
+        "balcony_sqm": 12.0,
+        "bedrooms": 3,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Unit 301 - Penthouse",
+        "floor": 3,
+        "price_usd": 450000,
+        "total_sqm": 145.0,
+        "bedroom_sqm": 55.0,
+        "bathroom_sqm": 22.0,
+        "balcony_sqm": 18.0,
+        "bedrooms": 3,
+        "bathrooms": 3
+      }
+    ]
+  },
+  {
+    "project_id": "PROJ-002",
+    "project_name": "Downtown Plaza",
+    "location": "New York, NY",
+    "description": "Modern urban living in the heart of Manhattan with world-class amenities",
+    "expected_annual_yield_percent": 7.2,
+    "image_url": "https://example.com/downtown-plaza.jpg",
+    "floor_details": [
+      {
+        "apartment_name": "Studio 5A",
+        "floor": 5,
+        "price_usd": 180000,
+        "total_sqm": 45.0,
+        "bedroom_sqm": 18.0,
+        "bathroom_sqm": 8.0,
+        "balcony_sqm": 4.0,
+        "bedrooms": 0,
+        "bathrooms": 1
+      },
+      {
+        "apartment_name": "Unit 10B - City View",
+        "floor": 10,
+        "price_usd": 380000,
+        "total_sqm": 92.0,
+        "bedroom_sqm": 35.0,
+        "bathroom_sqm": 15.0,
+        "balcony_sqm": 7.0,
+        "bedrooms": 2,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Unit 15C - Skyline View",
+        "floor": 15,
+        "price_usd": 520000,
+        "total_sqm": 120.0,
+        "bedroom_sqm": 48.0,
+        "bathroom_sqm": 18.0,
+        "balcony_sqm": 10.0,
+        "bedrooms": 3,
+        "bathrooms": 2
+      }
+    ]
+  },
+  {
+    "project_id": "PROJ-003",
+    "project_name": "Silicon Valley Residences",
+    "location": "Palo Alto, CA",
+    "description": "Tech-forward smart homes with sustainable design and cutting-edge automation",
+    "expected_annual_yield_percent": 9.0,
+    "image_url": "https://example.com/silicon-valley.jpg",
+    "floor_details": [
+      {
+        "apartment_name": "Smart Home A1",
+        "floor": 1,
+        "price_usd": 420000,
+        "total_sqm": 110.0,
+        "bedroom_sqm": 40.0,
+        "bathroom_sqm": 18.0,
+        "balcony_sqm": 12.0,
+        "bedrooms": 2,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Smart Home B2",
+        "floor": 2,
+        "price_usd": 550000,
+        "total_sqm": 135.0,
+        "bedroom_sqm": 52.0,
+        "bathroom_sqm": 20.0,
+        "balcony_sqm": 15.0,
+        "bedrooms": 3,
+        "bathrooms": 2
+      },
+      {
+        "apartment_name": "Executive Suite C3",
+        "floor": 3,
+        "price_usd": 780000,
+        "total_sqm": 180.0,
+        "bedroom_sqm": 70.0,
+        "bathroom_sqm": 28.0,
+        "balcony_sqm": 22.0,
+        "bedrooms": 4,
+        "bathrooms": 3
+      }
+    ]
+  }
+]

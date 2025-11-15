@@ -1,0 +1,67 @@
+🏠 EASYSALE - QUICK SETUP GUIDE
+================================
+
+📋 WHAT YOU HAVE:
+- Complete tokenized real estate platform
+- Backend API (FastAPI + SQLite)
+- Smart contracts (Solidity + Hardhat)
+- DAO governance system
+- Rent distribution system
+- Secondary marketplace
+
+🚀 TO START EVERYTHING:
+
+Windows:
+  start.bat
+
+Linux/Mac:
+  chmod +x start.sh
+  ./start.sh
+
+🛑 TO STOP EVERYTHING:
+
+Windows:
+  stop.bat
+
+Linux/Mac:
+  ./stop.sh
+
+📖 AFTER STARTING:
+
+1. Open http://localhost:8000/docs
+2. Try the API endpoints
+3. Create users, properties, investments
+4. Test DAO voting
+5. Test marketplace trading
+
+🔧 WHAT THE START SCRIPT DOES:
+
+1. Installs Python dependencies
+2. Installs Node.js dependencies
+3. Starts Hardhat blockchain node
+4. Deploys all smart contracts
+5. Updates .env configuration
+6. Starts FastAPI backend
+
+✅ EVERYTHING IS AUTOMATED!
+
+📝 LOGS:
+
+- Blockchain: hardhat.log
+- Deployment: deploy.log
+- Backend: backend.log
+
+🎯 MAIN FEATURES:
+
+✓ User registration with auto-generated blockchain wallets
+✓ Property creation with automatic smart contract deployment
+✓ Investment system (USD → ERC-1155 tokens)
+✓ DAO governance (token-weighted voting)
+✓ Rent distribution (USDC payments)
+✓ Secondary marketplace (trade tokens)
+✓ Portfolio tracking
+
+📚 FOR MORE INFO:
+
+See README.md for detailed documentation
+
