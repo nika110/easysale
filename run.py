@@ -1,4 +1,4 @@
-"""
+gi"""
 Simple script to run the FastAPI server.
 Alternative to: uvicorn app.main:app --reload
 """
