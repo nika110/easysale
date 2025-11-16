@@ -75,7 +75,7 @@ async def create_dao_proposal(
     
     # Determine status based on dates
     now = datetime.utcnow()
-    status = "draft"
+    status = "active"  # Default to active so users can vote immediately
     if proposal_create.start_at and proposal_create.end_at:
         # Make start_at and end_at timezone-naive for comparison
         start_at_naive = proposal_create.start_at.replace(tzinfo=None) if proposal_create.start_at.tzinfo else proposal_create.start_at
@@ -86,7 +86,9 @@ async def create_dao_proposal(
                 status_code=400,
                 detail="start_at must be before end_at"
             )
-        if start_at_naive <= now < end_at_naive:
+        if now < start_at_naive:
+            status = "draft"  # Not started yet
+        elif start_at_naive <= now < end_at_naive:
             status = "active"
         elif now >= end_at_naive:
             status = "closed"
@@ -124,6 +126,24 @@ async def get_proposal(db: AsyncSession, proposal_id: int) -> DaoProposal:
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return proposal
+
+
+async def get_all_proposals(
+    db: AsyncSession,
+    user_id: Optional[int] = None,
+    status: Optional[str] = None
+) -> list[DaoProposal]:
+    """Get all proposals, optionally filtered by user or status."""
+    query = select(DaoProposal).order_by(DaoProposal.created_at.desc())
+    
+    if user_id:
+        query = query.where(DaoProposal.created_by_user_id == user_id)
+    
+    if status:
+        query = query.where(DaoProposal.status == status)
+    
+    result = await db.execute(query)
+    return list(result.scalars().all())
 
 
 async def get_property_proposals(
@@ -343,3 +363,255 @@ async def close_proposal(db: AsyncSession, proposal_id: int) -> DaoProposal:
     logger.info(f"Closed proposal {proposal_id}")
     return proposal
 
+
+async def approve_proposal(
+    db: AsyncSession,
+    proposal_id: int
+) -> DaoProposal:
+    """
+    Approve a proposal (admin action for rent decisions).
+    
+    Args:
+        db: Database session
+        proposal_id: Proposal ID
+        
+    Returns:
+        Updated DaoProposal instance
+    """
+    proposal = await get_proposal(db, proposal_id)
+    
+    if proposal.status == "approved":
+        raise HTTPException(status_code=400, detail="Proposal is already approved")
+    
+    proposal.status = "approved"
+    proposal.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(proposal)
+    
+    logger.info(f"Approved proposal {proposal_id} (property {proposal.property_id})")
+    return proposal
+
+
+async def get_rent_proposals(
+    db: AsyncSession,
+    status: Optional[str] = None
+) -> list[DaoProposal]:
+    """
+    Get all rent decision proposals.
+    
+    Args:
+        db: Database session
+        status: Optional status filter
+        
+    Returns:
+        List of DaoProposal instances
+    """
+    query = select(DaoProposal).where(
+        DaoProposal.proposal_type == "rent_decision"
+    ).order_by(DaoProposal.created_at.desc())
+    
+    if status:
+        query = query.where(DaoProposal.status == status)
+    
+    result = await db.execute(query)
+    proposals = list(result.scalars().all())
+    
+    return proposals
+
+
+async def get_property_rent_status(
+    db: AsyncSession,
+    property_id: int
+) -> dict:
+    """
+    Get the rental status of a property.
+    
+    Args:
+        db: Database session
+        property_id: Property ID
+        
+    Returns:
+        Dict with rental status information
+    """
+    # Get approved rent decision proposal for this property
+    query = select(DaoProposal).where(
+        DaoProposal.property_id == property_id,
+        DaoProposal.proposal_type == "rent_decision",
+        DaoProposal.status == "approved"
+    ).order_by(DaoProposal.updated_at.desc())
+    
+    result = await db.execute(query)
+    proposal = result.scalar_one_or_none()
+    
+    if not proposal:
+        return {
+            "is_rented": False,
+            "monthly_rent": None,
+            "approved_at": None
+        }
+    
+    # Get the winning option (rent amount) from proposal results
+    results = await compute_proposal_results(db, proposal.id)
+    
+    return {
+        "is_rented": True,
+        "monthly_rent": results.winning_option if results.winning_option else None,
+        "approved_at": proposal.updated_at.isoformat() if proposal.updated_at else None,
+        "proposal_id": proposal.id,
+        "proposal_title": proposal.title
+    }
+
+
+async def calculate_user_rent_payout(
+    db: AsyncSession,
+    property_id: int,
+    user_id: int
+) -> dict:
+    """
+    Calculate user's expected monthly rent payout.
+    
+    Args:
+        db: Database session
+        property_id: Property ID
+        user_id: User ID
+        
+    Returns:
+        Dict with payout information
+    """
+    # Get property
+    property_result = await db.execute(select(Property).where(Property.id == property_id))
+    property_obj = property_result.scalar_one_or_none()
+    if not property_obj:
+        raise HTTPException(status_code=404, detail="Property not found")
+    
+    # Get user's token balance
+    balance_result = await db.execute(
+        select(UserPropertyBalance).where(
+            UserPropertyBalance.user_id == user_id,
+            UserPropertyBalance.property_id == property_id
+        )
+    )
+    balance = balance_result.scalar_one_or_none()
+    if not balance or balance.tokens <= 0:
+        return {
+            "has_tokens": False,
+            "monthly_payout": 0,
+            "ownership_percentage": 0
+        }
+    
+    # Get rent status
+    rent_status = await get_property_rent_status(db, property_id)
+    if not rent_status["is_rented"] or not rent_status["monthly_rent"]:
+        return {
+            "has_tokens": True,
+            "is_rented": False,
+            "monthly_payout": 0,
+            "ownership_percentage": (balance.tokens / property_obj.total_tokens) * 100
+        }
+    
+    # Calculate payout
+    monthly_rent = float(rent_status["monthly_rent"])
+    ownership_percentage = (balance.tokens / property_obj.total_tokens) * 100
+    monthly_payout = monthly_rent * (balance.tokens / property_obj.total_tokens)
+    
+    return {
+        "has_tokens": True,
+        "is_rented": True,
+        "monthly_rent": monthly_rent,
+        "tokens_owned": balance.tokens,
+        "total_tokens": property_obj.total_tokens,
+        "ownership_percentage": ownership_percentage,
+        "monthly_payout": monthly_payout
+    }
+
+
+async def claim_rent(
+    db: AsyncSession,
+    property_id: int,
+    user_id: int
+) -> dict:
+    """
+    Claim accumulated rent for a property.
+    
+    Users can claim once per month per property.
+    
+    Args:
+        db: Database session
+        property_id: Property ID
+        user_id: User ID
+        
+    Returns:
+        Dict with claim result
+    """
+    from app.models import RentClaim
+    
+    # Calculate payout
+    payout_info = await calculate_user_rent_payout(db, property_id, user_id)
+    
+    if not payout_info["has_tokens"]:
+        raise HTTPException(status_code=400, detail="You don't own tokens in this property")
+    
+    if not payout_info["is_rented"]:
+        raise HTTPException(status_code=400, detail="This property is not currently rented")
+    
+    monthly_payout = payout_info["monthly_payout"]
+    if monthly_payout <= 0:
+        raise HTTPException(status_code=400, detail="No rent to claim")
+    
+    # Check if user has already claimed for this month
+    now = datetime.utcnow()
+    current_month = now.month
+    current_year = now.year
+    
+    existing_claim_query = select(RentClaim).where(
+        RentClaim.user_id == user_id,
+        RentClaim.property_id == property_id,
+        RentClaim.claim_period_month == current_month,
+        RentClaim.claim_period_year == current_year
+    )
+    existing_claim_result = await db.execute(existing_claim_query)
+    existing_claim = existing_claim_result.scalar_one_or_none()
+    
+    if existing_claim:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"You have already claimed rent for this property in {now.strftime('%B %Y')}. Next claim available on {now.replace(day=1, month=now.month % 12 + 1).strftime('%B 1, %Y')}."
+        )
+    
+    # Get user
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Create rent claim record
+    rent_claim = RentClaim(
+        user_id=user_id,
+        property_id=property_id,
+        amount_claimed_usd=monthly_payout,
+        tokens_owned_at_claim=payout_info["tokens_owned"],
+        monthly_rent_at_claim=payout_info["monthly_rent"],
+        claim_period_month=current_month,
+        claim_period_year=current_year
+    )
+    db.add(rent_claim)
+    
+    # Add rent to user's balance
+    user.mock_balance_usd += monthly_payout
+    user.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(user)
+    
+    logger.info(
+        f"User {user_id} claimed ${monthly_payout:.2f} rent from property {property_id} for {now.strftime('%B %Y')}"
+    )
+    
+    return {
+        "success": True,
+        "amount_claimed": monthly_payout,
+        "new_balance": user.mock_balance_usd,
+        "property_id": property_id,
+        "claim_period": f"{now.strftime('%B %Y')}"
+    }

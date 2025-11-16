@@ -42,6 +42,24 @@ async def create_proposal_endpoint(
     return proposal
 
 
+@router.get("/proposals", response_model=list[DaoProposalRead])
+async def get_all_proposals_endpoint(
+    user_id: Optional[int] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all proposals, optionally filtered by user or status.
+    
+    Optional query params:
+    - user_id: Filter proposals created by this user
+    - status: Filter by status ("draft", "active", "closed")
+    """
+    from app.dao_services import get_all_proposals
+    proposals = await get_all_proposals(db, user_id, status)
+    return proposals
+
+
 @router.get("/properties/{property_id}/proposals", response_model=list[DaoProposalRead])
 async def get_property_proposals_endpoint(
     property_id: int,
@@ -122,3 +140,88 @@ async def close_proposal_endpoint(
     proposal = await close_proposal(db, proposal_id)
     return proposal
 
+
+@router.post("/proposals/{proposal_id}/approve", response_model=DaoProposalRead)
+async def approve_proposal_endpoint(
+    proposal_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Approve a rent proposal (admin action).
+    
+    This marks the proposal as approved, indicating that a renter has been found
+    and the property is now rented at the voted price.
+    """
+    from app.dao_services import approve_proposal
+    proposal = await approve_proposal(db, proposal_id)
+    return proposal
+
+
+@router.get("/rent-proposals", response_model=list[DaoProposalRead])
+async def get_rent_proposals_endpoint(
+    status: Optional[str] = "closed",
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all rent decision proposals.
+    
+    Query parameters:
+    - status: Filter by status (default: "closed" to show decided proposals)
+    
+    Returns proposals of type "rent_decision" that need admin action.
+    """
+    from app.dao_services import get_rent_proposals
+    proposals = await get_rent_proposals(db, status)
+    return proposals
+
+
+@router.get("/properties/{property_id}/rent-status")
+async def get_property_rent_status_endpoint(
+    property_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get the rental status of a property (approved rent proposals).
+    
+    Returns the approved rent decision proposal if property is rented.
+    """
+    from app.dao_services import get_property_rent_status
+    status = await get_property_rent_status(db, property_id)
+    return status
+
+
+@router.get("/properties/{property_id}/users/{user_id}/rent-payout")
+async def get_user_rent_payout_endpoint(
+    property_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Calculate the user's expected monthly rent payout for a property.
+    
+    Based on:
+    - Property's approved monthly rent
+    - User's token ownership percentage
+    """
+    from app.dao_services import calculate_user_rent_payout
+    payout = await calculate_user_rent_payout(db, property_id, user_id)
+    return payout
+
+
+@router.post("/properties/{property_id}/users/{user_id}/claim-rent")
+async def claim_rent_endpoint(
+    property_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Claim accumulated rent for a property.
+    
+    This will:
+    1. Calculate rent owed based on token ownership
+    2. Transfer rent to user's balance (mock USD)
+    3. Record the claim transaction
+    """
+    from app.dao_services import claim_rent
+    result = await claim_rent(db, property_id, user_id)
+    return result

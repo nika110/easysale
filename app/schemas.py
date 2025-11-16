@@ -43,6 +43,19 @@ class UserWalletInfo(BaseModel):
     blockchain_address: Optional[str] = None
 
 
+class UserWalletKeys(BaseModel):
+    """Schema for user's blockchain wallet keys (HACKATHON ONLY - DO NOT USE IN PRODUCTION)."""
+    user_id: int
+    blockchain_address: Optional[str] = None
+    blockchain_private_key: Optional[str] = None
+
+
+class UserBalance(BaseModel):
+    """Schema for user's balance information."""
+    user_id: int
+    mock_balance_usd: float
+
+
 # ==================== Property Schemas ====================
 
 class PropertyBase(BaseModel):
@@ -53,6 +66,16 @@ class PropertyBase(BaseModel):
     price_usd: int
     expected_annual_yield_percent: float
     image_url: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    apartment_name: Optional[str] = None
+    floor: Optional[int] = None
+    total_sqm: Optional[float] = None
+    bedroom_sqm: Optional[float] = None
+    bathroom_sqm: Optional[float] = None
+    balcony_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
 
 
 class PropertyCreate(PropertyBase):
@@ -68,6 +91,16 @@ class PropertyUpdate(BaseModel):
     expected_annual_yield_percent: Optional[float] = None
     status: Optional[str] = None
     image_url: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    apartment_name: Optional[str] = None
+    floor: Optional[int] = None
+    total_sqm: Optional[float] = None
+    bedroom_sqm: Optional[float] = None
+    bathroom_sqm: Optional[float] = None
+    balcony_sqm: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
 
 
 class PropertyRead(BaseModel):
@@ -147,6 +180,7 @@ class UserPropertyBalanceRead(BaseModel):
     property_id: int
     property_name: str
     tokens: int
+    total_tokens: int  # Total tokens in the property
     invested_usd: float
     expected_annual_yield_percent: float
     estimated_annual_income_usd: float
@@ -158,6 +192,8 @@ class PortfolioSummaryRead(BaseModel):
     balances: list[UserPropertyBalanceRead]
     total_tokens: int
     total_invested_usd: float
+    portfolio_value_usd: float  # Current portfolio value (same as invested for now, can be updated with market prices)
+    total_yield_percent: float  # Overall yield percentage
     total_estimated_annual_income_usd: float
     remaining_mock_balance_usd: float
 
@@ -255,3 +291,88 @@ class DaoProposalResult(BaseModel):
     winning_option: Optional[str] = None
     status: str
 
+
+# ==================== Marketplace Schemas ====================
+
+class MarketplaceListingCreate(BaseModel):
+    """Schema for creating a marketplace listing."""
+    seller_id: int
+    property_id: int
+    tokens: int
+    price_per_token_usd: float
+
+
+class MarketplaceListingRead(BaseModel):
+    """Schema for reading marketplace listing data."""
+    id: int
+    seller_id: int
+    property_id: int
+    property_name: str  # Joined from property
+    tokens_listed: int
+    tokens_remaining: int
+    price_per_token_usd: float
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketplaceListingWithDetails(BaseModel):
+    """Schema for marketplace listing with full property details."""
+    id: int
+    seller_id: int
+    property_id: int
+    property_name: str
+    property_location: str
+    property_image_url: Optional[str]
+    expected_annual_yield_percent: float
+    tokens_listed: int
+    tokens_remaining: int
+    price_per_token_usd: float
+    original_price_per_token_usd: float  # Original property price for comparison
+    discount_percent: Optional[float] = None  # Calculated discount/premium
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MarketplacePurchaseCreate(BaseModel):
+    """Schema for purchasing tokens from marketplace."""
+    buyer_id: int
+    listing_id: int
+    tokens: int
+
+
+class MarketplacePurchaseRead(BaseModel):
+    """Schema for reading marketplace purchase data."""
+    id: int
+    listing_id: int
+    buyer_id: int
+    seller_id: int
+    property_id: int
+    tokens_purchased: int
+    price_per_token_usd: float
+    total_price_usd: float
+    platform_fee_usd: float
+    seller_received_usd: float
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MarketplacePurchaseResponse(BaseModel):
+    """Enhanced response for marketplace purchase."""
+    purchase: MarketplacePurchaseRead
+    buyer_new_balance_usd: float
+    seller_new_balance_usd: float
+    buyer_new_token_balance: int
+    listing_status: str
+
+
+class MarketplaceStats(BaseModel):
+    """Statistics for the marketplace."""
+    total_active_listings: int
+    total_tokens_listed: int
+    total_volume_usd: float  # All-time trading volume
+    average_discount_percent: Optional[float] = None

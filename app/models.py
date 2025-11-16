@@ -163,3 +163,73 @@ class DaoVote(Base):
     proposal = relationship("DaoProposal", back_populates="votes")
     user = relationship("User")
 
+
+class MarketplaceListing(Base):
+    """Marketplace listing for secondary token sales."""
+    
+    __tablename__ = "marketplace_listings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
+    tokens_listed = Column(Integer, nullable=False)  # Original amount listed
+    tokens_remaining = Column(Integer, nullable=False)  # Remaining available
+    price_per_token_usd = Column(Float, nullable=False)  # Seller's asking price
+    status = Column(String, nullable=False, default="active")  # "active", "completed", "cancelled"
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    seller = relationship("User", foreign_keys=[seller_id])
+    property = relationship("Property")
+    purchases = relationship("MarketplacePurchase", back_populates="listing", cascade="all, delete-orphan")
+
+
+class MarketplacePurchase(Base):
+    """Record of a marketplace purchase transaction."""
+    
+    __tablename__ = "marketplace_purchases"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    listing_id = Column(Integer, ForeignKey("marketplace_listings.id"), nullable=False, index=True)
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
+    tokens_purchased = Column(Integer, nullable=False)
+    price_per_token_usd = Column(Float, nullable=False)
+    total_price_usd = Column(Float, nullable=False)
+    platform_fee_usd = Column(Float, nullable=False)  # 2.5% fee
+    seller_received_usd = Column(Float, nullable=False)  # Total - fee
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    listing = relationship("MarketplaceListing", back_populates="purchases")
+    buyer = relationship("User", foreign_keys=[buyer_id])
+    seller = relationship("User", foreign_keys=[seller_id])
+    property = relationship("Property")
+
+
+class RentClaim(Base):
+    """Record of rent claims by token holders."""
+    
+    __tablename__ = "rent_claims"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
+    amount_claimed_usd = Column(Float, nullable=False)
+    tokens_owned_at_claim = Column(Integer, nullable=False)  # Snapshot of tokens owned
+    monthly_rent_at_claim = Column(Float, nullable=False)  # Snapshot of monthly rent
+    claim_period_month = Column(Integer, nullable=False)  # Month (1-12)
+    claim_period_year = Column(Integer, nullable=False)  # Year (e.g., 2025)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    property = relationship("Property")
+    
+    # Unique constraint: one claim per user per property per month
+    __table_args__ = (
+        UniqueConstraint('user_id', 'property_id', 'claim_period_year', 'claim_period_month', 
+                        name='uix_rent_claim_user_property_period'),
+    )

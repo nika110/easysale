@@ -17,7 +17,7 @@ from app.schemas import (
     InvestmentResponse, PaginatedPropertiesResponse
 )
 from app.config import settings
-from app.blockchain.wallets import generate_new_wallet
+from app.blockchain.wallets import generate_new_wallet, fund_wallet_with_gas
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,7 @@ async def list_users(db: AsyncSession) -> list[User]:
 async def ensure_user_wallet(db: AsyncSession, user: User) -> User:
     """
     Ensure user has a blockchain wallet. Creates one if not exists.
+    Also funds the wallet with ETH for gas fees.
     
     Args:
         db: Database session
@@ -117,6 +118,15 @@ async def ensure_user_wallet(db: AsyncSession, user: User) -> User:
     await db.refresh(user)
     
     logger.info(f"✅ Wallet created for user {user.id}: {wallet['address']}")
+    
+    # Fund wallet with ETH for gas fees
+    try:
+        tx_hash = await fund_wallet_with_gas(wallet["address"], amount_eth=0.1)
+        logger.info(f"✅ Funded wallet {wallet['address']} with 0.1 ETH for gas: {tx_hash}")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to fund wallet {wallet['address']} with gas: {e}")
+        # Don't fail user creation if gas funding fails
+    
     return user
 
 
@@ -397,6 +407,7 @@ async def get_portfolio_summary(db: AsyncSession, user_id: int) -> PortfolioSumm
                 property_id=balance.property_id,
                 property_name=balance.property.name,
                 tokens=balance.tokens,
+                total_tokens=balance.property.total_tokens,
                 invested_usd=invested_usd,
                 expected_annual_yield_percent=expected_yield,
                 estimated_annual_income_usd=estimated_annual_income,
@@ -406,11 +417,19 @@ async def get_portfolio_summary(db: AsyncSession, user_id: int) -> PortfolioSumm
         total_invested_usd += invested_usd
         total_estimated_annual_income_usd += estimated_annual_income
     
+    # Calculate portfolio value (for now, same as invested; can be updated with market prices later)
+    portfolio_value_usd = total_invested_usd
+    
+    # Calculate total yield percentage
+    total_yield_percent = (total_estimated_annual_income_usd / total_invested_usd * 100.0) if total_invested_usd > 0 else 0.0
+    
     return PortfolioSummaryRead(
         user_id=user_id,
         balances=balance_list,
         total_tokens=total_tokens,
         total_invested_usd=total_invested_usd,
+        portfolio_value_usd=portfolio_value_usd,
+        total_yield_percent=total_yield_percent,
         total_estimated_annual_income_usd=total_estimated_annual_income_usd,
         remaining_mock_balance_usd=user.mock_balance_usd,
     )

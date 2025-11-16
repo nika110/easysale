@@ -407,3 +407,105 @@ def get_tokens_available(contract_address: str) -> Optional[int]:
         logger.error(f"Error getting tokens available from contract {contract_address}: {e}")
         return None
 
+
+async def transfer_tokens_custodial(
+    contract_address: str,
+    from_address: str,
+    to_address: str,
+    amount: int,
+    from_private_key: str
+) -> str:
+    """
+    Transfer tokens from one user to another (custodial - platform executes).
+    Platform uses the seller's private key to transfer tokens from their wallet.
+    
+    This is used for secondary marketplace transactions where:
+    - Seller has tokens in their wallet
+    - Buyer purchases them via platform
+    - Platform transfers tokens from seller to buyer using seller's private key
+    
+    Args:
+        contract_address: Address of the property's RealEstate1155 contract
+        from_address: Seller's blockchain wallet address
+        to_address: Buyer's blockchain wallet address
+        amount: Number of tokens to transfer
+        from_private_key: Seller's private key (custodial model)
+        
+    Returns:
+        Transaction hash as hex string
+        
+    Raises:
+        BlockchainError: If transaction fails
+    """
+    if not is_blockchain_enabled():
+        raise BlockchainError("Blockchain not configured")
+    
+    if not contract_address:
+        raise BlockchainError("Contract address not provided")
+    
+    if not from_address or not to_address:
+        raise BlockchainError("User addresses not provided")
+    
+    if not from_private_key:
+        raise BlockchainError("Seller's private key not provided")
+    
+    contract = get_realestate1155_contract(contract_address)
+    if not contract:
+        raise BlockchainError("Contract not available")
+    
+    try:
+        # Create account from seller's private key
+        from_account = w3.eth.account.from_key(from_private_key)
+        
+        # Verify the account matches the from_address
+        if from_account.address.lower() != from_address.lower():
+            raise BlockchainError("Private key does not match seller address")
+        
+        # ERC1155 safeTransferFrom: from, to, tokenId, amount, data
+        # TOKEN_ID is always 1 for our properties
+        TOKEN_ID = 1
+        
+        # Build transaction - seller executes the transfer
+        tx = contract.functions.safeTransferFrom(
+            from_address,
+            to_address,
+            TOKEN_ID,
+            amount,
+            b''  # empty data
+        ).build_transaction({
+            'from': from_address,
+            'nonce': w3.eth.get_transaction_count(from_address),
+            'gas': 200000,
+            'gasPrice': w3.eth.gas_price,
+            'chainId': CHAIN_ID
+        })
+        
+        # Sign transaction with seller's private key
+        signed_tx = from_account.sign_transaction(tx)
+        
+        # Send transaction
+        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        
+        logger.info(
+            f"Transfer {amount} tokens from {from_address} to {to_address} "
+            f"on contract {contract_address} tx sent: {tx_hash.hex()}"
+        )
+        
+        # Wait for receipt
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        
+        if receipt['status'] != 1:
+            raise BlockchainError(f"Transaction failed: {tx_hash.hex()}")
+        
+        logger.info(
+            f"✅ Transferred {amount} tokens from {from_address} to {to_address} "
+            f"on contract {contract_address}: {tx_hash.hex()}"
+        )
+        return tx_hash.hex()
+        
+    except ContractLogicError as e:
+        logger.error(f"Contract logic error transferring tokens: {e}")
+        raise BlockchainError(f"Contract error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error transferring tokens: {e}")
+        raise BlockchainError(f"Blockchain error: {str(e)}")

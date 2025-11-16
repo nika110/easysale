@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 
 from app.db import Base, engine as async_engine
 from app.config import settings
-from app.routers import users, properties, investments, portfolio, blockchain, dao
+from app.routers import users, properties, investments, portfolio, blockchain, dao, marketplace
 
 
 @asynccontextmanager
@@ -53,6 +53,7 @@ app.include_router(investments.router, prefix="/api/investments", tags=["investm
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
 app.include_router(blockchain.router, prefix="/api/blockchain", tags=["blockchain"])
 app.include_router(dao.router, prefix="/api/dao", tags=["dao"])
+app.include_router(marketplace.router, prefix="/api/marketplace", tags=["marketplace"])
 
 
 @app.get("/")

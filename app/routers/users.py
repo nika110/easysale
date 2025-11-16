@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.schemas import UserCreate, UserRead, UserWalletUpdate, UserWalletInfo
+from app.schemas import UserCreate, UserRead, UserWalletUpdate, UserWalletInfo, UserWalletKeys, UserBalance
 from app.services import create_user, get_user, list_users, update_user_wallet, ensure_user_wallet
 
 router = APIRouter()
@@ -74,4 +74,38 @@ async def update_user_wallet_endpoint(
     """
     user = await update_user_wallet(db, user_id, wallet_update.blockchain_wallet_address)
     return user
+
+
+@router.get("/{user_id}/wallet/keys", response_model=UserWalletKeys)
+async def get_user_wallet_keys_endpoint(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get user's blockchain wallet keys including private key.
+    
+    ⚠️ WARNING: This endpoint exposes private keys and should ONLY be used in development/hackathon.
+    In production, private keys should NEVER be exposed via API and should be encrypted at rest.
+    """
+    user = await get_user(db, user_id)
+    return UserWalletKeys(
+        user_id=user.id,
+        blockchain_address=user.blockchain_address,
+        blockchain_private_key=user.blockchain_private_key
+    )
+
+
+@router.get("/{user_id}/balance", response_model=UserBalance)
+async def get_user_balance_endpoint(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get user's current balance.
+    """
+    user = await get_user(db, user_id)
+    return UserBalance(
+        user_id=user.id,
+        mock_balance_usd=user.mock_balance_usd
+    )
 
